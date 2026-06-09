@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import AppBar from "@mui/material/AppBar"
 import Toolbar from "@mui/material/Toolbar"
 import Typography from "@mui/material/Typography"
@@ -21,6 +21,9 @@ import MenuIcon from "@mui/icons-material/Menu"
 import HomeIcon from "@mui/icons-material/Home"
 import GroupIcon from "@mui/icons-material/Group"
 import StorageIcon from "@mui/icons-material/Storage"
+import LoginIcon from "@mui/icons-material/Login"
+import LogoutIcon from "@mui/icons-material/Logout"
+import Divider from "@mui/material/Divider"
 
 const navItems = [
   { label: "Inicio", href: "/", icon: <HomeIcon /> },
@@ -30,9 +33,32 @@ const navItems = [
 
 export function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [user, setUser] = useState<{ email: string } | null>(null)
   const pathname = usePathname()
+  const router = useRouter()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
+
+  const loadSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/session")
+      const data = await res.json()
+      setUser(data.user)
+    } catch {
+      setUser(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSession()
+  }, [loadSession, pathname])
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
+    setUser(null)
+    router.push("/login")
+    router.refresh()
+  }
 
   const toggleDrawer = (open: boolean) => () => {
     setDrawerOpen(open)
@@ -67,7 +93,7 @@ export function Navbar() {
             Proyecto Web
           </Typography>
           {!isMobile && (
-            <Box sx={{ display: "flex", gap: 1 }}>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
               {navItems.map((item) => (
                 <Button
                   key={item.href}
@@ -80,6 +106,26 @@ export function Navbar() {
                   {item.label}
                 </Button>
               ))}
+              {user ? (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                    {user.email}
+                  </Typography>
+                  <Button startIcon={<LogoutIcon />} color="primary" onClick={handleLogout}>
+                    Salir
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  component={Link}
+                  href="/login"
+                  startIcon={<LoginIcon />}
+                  variant={pathname === "/login" ? "contained" : "outlined"}
+                  color="primary"
+                >
+                  Iniciar sesión
+                </Button>
+              )}
             </Box>
           )}
         </Toolbar>
@@ -110,6 +156,35 @@ export function Navbar() {
                 </ListItemButton>
               </ListItem>
             ))}
+            <Divider sx={{ my: 1 }} />
+            {user ? (
+              <>
+                <ListItem disablePadding>
+                  <ListItemText
+                    primary={user.email}
+                    primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
+                    sx={{ px: 2, py: 1 }}
+                  />
+                </ListItem>
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleLogout}>
+                    <ListItemIcon>
+                      <LogoutIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Cerrar sesión" />
+                  </ListItemButton>
+                </ListItem>
+              </>
+            ) : (
+              <ListItem disablePadding>
+                <ListItemButton component={Link} href="/login" selected={pathname === "/login"}>
+                  <ListItemIcon>
+                    <LoginIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Iniciar sesión" />
+                </ListItemButton>
+              </ListItem>
+            )}
           </List>
         </Box>
       </Drawer>
